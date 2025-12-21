@@ -11,9 +11,7 @@ export function SplashScreen({ onGetStarted }: SplashScreenProps) {
   const [showButton, setShowButton] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowButton(true);
-    }, 1500);
+    const timer = setTimeout(() => setShowButton(true), 1500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -47,10 +45,10 @@ export function SplashScreen({ onGetStarted }: SplashScreenProps) {
         transition={{ delay: 0.4, duration: 0.6 }}
         className="text-center mb-3"
       >
-        <h1 className="text-white text-5xl tracking-tight mb-2">Tag</h1>
+        <h1 className="text-white text-5xl tracking-tight mb-2 font-bold">Tag</h1>
         <div className="flex items-center gap-2 justify-center">
           <div className="h-px w-8 bg-[#A6FF00]" />
-          <p className="text-white/90 text-lg">Tap and Go</p>
+          <p className="text-white/90 text-lg font-medium">Tap and Go</p>
           <div className="h-px w-8 bg-[#A6FF00]" />
         </div>
       </motion.div>
@@ -92,11 +90,12 @@ export function SplashScreen({ onGetStarted }: SplashScreenProps) {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
           className="absolute bottom-12 left-8 right-8"
         >
           <Button
             onClick={onGetStarted}
-            className="w-full bg-[#A6FF00] text-[#1E1E1E] hover:bg-[#95ee00] rounded-2xl h-14 shadow-lg"
+            className="w-full bg-[#A6FF00] text-[#1E1E1E] hover:bg-[#95ee00] rounded-2xl h-14 shadow-lg font-medium"
           >
             Get Started
           </Button>
