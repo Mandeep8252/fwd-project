@@ -1,208 +1,210 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { Mail, Lock, Phone, Zap } from 'lucide-react';
+import { Mail, Lock, Zap } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Label } from './ui/label';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
+import axios from 'axios';
 
 interface AuthScreenProps {
   onLogin: () => void;
 }
 
 export function AuthScreen({ onLogin }: AuthScreenProps) {
-  const [activeTab, setActiveTab] = useState('login');
+  const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Login
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
+  // Signup
+  const [signupName, setSignupName] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [signupRole, setSignupRole] = useState<'customer' | 'admin'>('customer');
+
+  // OTP
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpValue, setOtpValue] = useState('');
+  const [otpCooldown, setOtpCooldown] = useState(0);
+  const [otpResendLoading, setOtpResendLoading] = useState(false);
+
+  const otpInputRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(false);
+
+  const API_URL = 'http://localhost:5000/api/auth';
+
+  // ================= LOGIN =================
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success('Login successful!');
-    setTimeout(() => onLogin(), 500);
+    setLoading(true);
+    try {
+      const res = await axios.post(`${API_URL}/login`, {
+        email: loginEmail.trim(),
+        password: loginPassword,
+      });
+
+      localStorage.setItem('token', res.data.token);
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+      toast.success('Login successful');
+      onLogin();
+    } catch (err: any) {
+      toast.error(err.response?.data?.msg || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSignup = (e: React.FormEvent) => {
+  // ================= SIGNUP =================
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success('Account created successfully!');
-    setTimeout(() => onLogin(), 500);
+    setLoading(true);
+    try {
+      await axios.post(`${API_URL}/signup`, {
+        name: signupName.trim(),
+        email: signupEmail.trim(),
+        password: signupPassword,
+        role: signupRole,
+      });
+
+      toast.success('OTP sent to your email');
+      setOtpSent(true);
+      setActiveTab('signup');
+      setOtpCooldown(60);
+    } catch (err: any) {
+      toast.error(err.response?.data?.msg || 'Signup failed');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // ================= VERIFY OTP =================
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(otpValue)) {
+      toast.error('OTP must be 6 digits');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await axios.post(`${API_URL}/verify-otp`, {
+        email: signupEmail.trim(),
+        otp: otpValue,
+      });
+
+      localStorage.setItem('token', res.data.token);
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+      toast.success('Account verified');
+
+      setOtpSent(false);
+      setOtpValue('');
+      setActiveTab('login');
+    } catch (err: any) {
+      toast.error(err.response?.data?.msg || 'OTP verification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ================= RESEND OTP (FIXED) =================
+  const handleResendOtp = async () => {
+    setOtpResendLoading(true);
+    try {
+      await axios.post(`${API_URL}/resend-otp`, {
+        email: signupEmail.trim(),
+      });
+      toast.success('OTP resent');
+      setOtpCooldown(60);
+    } catch (err: any) {
+      toast.error(err.response?.data?.msg || 'Failed to resend OTP');
+    } finally {
+      setOtpResendLoading(false);
+    }
+  };
+
+  // OTP timer
+  useEffect(() => {
+    if (otpCooldown <= 0) return;
+    const t = setInterval(() => setOtpCooldown((p) => p - 1), 1000);
+    return () => clearInterval(t);
+  }, [otpCooldown]);
+
+  useEffect(() => {
+    if (otpSent && otpInputRef.current) otpInputRef.current.focus();
+  }, [otpSent]);
 
   return (
-    <div className="relative w-full h-full bg-white flex flex-col">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-[#007BFF] to-[#0056b3] px-8 pt-12 pb-20">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 mb-3"
-        >
-          <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-            <Zap className="w-6 h-6 text-[#A6FF00]" fill="#A6FF00" />
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-lg overflow-hidden">
+
+        <div className="bg-gradient-to-br from-[#007BFF] to-[#0056b3] px-8 pt-12 pb-16 text-center">
+          <div className="flex justify-center gap-3 mb-3">
+            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
+              <Zap className="w-6 h-6 text-[#A6FF00]" />
+            </div>
+            <h1 className="text-white text-2xl font-semibold">Tag</h1>
           </div>
-          <h1 className="text-white text-2xl">Tag</h1>
-        </motion.div>
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="text-white/80"
-        >
-          Welcome back! Sign in to continue
-        </motion.p>
-      </div>
+          <p className="text-white/80 text-sm">Sign in or create account</p>
+        </div>
 
-      {/* Form Content */}
-      <div className="flex-1 -mt-12 bg-white rounded-t-3xl px-6 py-8 overflow-auto">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="login">Login</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
-          </TabsList>
+        <div className="px-8 py-8">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid grid-cols-2 mb-6">
+              <TabsTrigger value="login">Login</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="login">
-            <motion.form
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              onSubmit={handleLogin}
-              className="space-y-4"
-            >
-              <div className="space-y-2">
-                <Label htmlFor="email">Email or Phone</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <Input
-                    id="email"
-                    type="text"
-                    placeholder="Enter email or phone"
-                    className="pl-10 h-12 rounded-xl"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter password"
-                    className="pl-10 h-12 rounded-xl"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <Button variant="link" className="text-[#007BFF] p-0">
-                  Forgot Password?
+            {/* LOGIN */}
+            <TabsContent value="login">
+              <form onSubmit={handleLogin} className="space-y-4">
+                <Label>Email</Label>
+                <Input value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
+                <Label>Password</Label>
+                <Input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
+                <Button className="w-full" disabled={loading}>
+                  {loading ? 'Loading...' : 'Login'}
                 </Button>
-              </div>
+              </form>
+            </TabsContent>
 
-              <Button
-                type="submit"
-                className="w-full bg-[#007BFF] hover:bg-[#0056b3] text-white rounded-2xl h-12"
-              >
-                Continue
-              </Button>
-
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200" />
-                </div>
-                <div className="relative flex justify-center">
-                  <span className="bg-white px-4 text-gray-500">Or continue with</span>
-                </div>
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full rounded-2xl h-12"
-              >
-                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
-                </svg>
-                Login with Google
-              </Button>
-            </motion.form>
-          </TabsContent>
-
-          <TabsContent value="signup">
-            <motion.form
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              onSubmit={handleSignup}
-              className="space-y-4"
-            >
-              <div className="space-y-2">
-                <Label htmlFor="signup-phone">Phone Number</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            {/* SIGNUP */}
+            <TabsContent value="signup">
+              {!otpSent ? (
+                <form onSubmit={handleSignup} className="space-y-4">
+                  <Input placeholder="Name" value={signupName} onChange={(e) => setSignupName(e.target.value)} />
+                  <Input placeholder="Email" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} />
+                  <Input type="password" placeholder="Password" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} />
+                  <Button className="w-full" disabled={loading}>
+                    {loading ? 'Loading...' : 'Create Account'}
+                  </Button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
                   <Input
-                    id="signup-phone"
-                    type="tel"
-                    placeholder="+91 98765 43210"
-                    className="pl-10 h-12 rounded-xl"
+                    ref={otpInputRef}
+                    placeholder="Enter OTP"
+                    value={otpValue}
+                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
                   />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="signup-email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="your@email.com"
-                    className="pl-10 h-12 rounded-xl"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="signup-password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="Create a password"
-                    className="pl-10 h-12 rounded-xl"
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full bg-[#007BFF] hover:bg-[#0056b3] text-white rounded-2xl h-12 mt-6"
-              >
-                Create Account
-              </Button>
-
-              <p className="text-center text-gray-500 mt-4">
-                By signing up, you agree to our{' '}
-                <Button variant="link" className="text-[#007BFF] p-0 h-auto">
-                  Terms & Conditions
-                </Button>
-              </p>
-            </motion.form>
-          </TabsContent>
-        </Tabs>
+                  <Button className="w-full" disabled={loading}>
+                    Verify OTP
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={otpCooldown > 0 || otpResendLoading}
+                    className="w-full bg-gray-200 text-black"
+                  >
+                    {otpCooldown > 0 ? `Resend OTP (${otpCooldown}s)` : 'Resend OTP'}
+                  </Button>
+                </form>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );

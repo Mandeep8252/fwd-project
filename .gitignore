@@ -1,1 +1,11 @@
+# Node
+node_modules/
+*/node_modules/
+
+# Vite
+.vite/
+dist/
+
+# Env
 .env
+
