@@ -7,7 +7,14 @@ const User = require('../models/User');
 const nodemailer = require('nodemailer');
 
 // =====================
-// Nodemailer Config
+// ENV SAFETY CHECK
+// =====================
+if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+  console.error('❌ EMAIL_USER or EMAIL_PASS not set in environment');
+}
+
+// =====================
+// Nodemailer Config (Render-safe)
 // =====================
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -15,10 +22,28 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS, // Gmail App Password
   },
+  tls: {
+    rejectUnauthorized: false, // IMPORTANT for cloud hosting
+  },
 });
 
 // =====================
-// Signup (FIRST TIME ONLY)
+// Allowed Email Domains
+// =====================
+const isAuthorizedEmail = (email) => {
+  const allowedDomains = [
+    'gmail.com',
+    'yahoo.com',
+    'outlook.com',
+    'bmsce.ac.in',
+  ];
+
+  const domain = email.split('@')[1];
+  return allowedDomains.includes(domain);
+};
+
+// =====================
+// SIGNUP
 // =====================
 router.post(
   '/signup',
@@ -35,39 +60,40 @@ router.post(
 
     const { name, email, password, role } = req.body;
 
+    if (!isAuthorizedEmail(email)) {
+      return res
+        .status(400)
+        .json({ msg: 'Please use a valid authorized email ID' });
+    }
+
     try {
       const existingUser = await User.findOne({ email });
       if (existingUser)
         return res.status(400).json({ msg: 'User already exists' });
 
-      // ✅ OTP AS STRING
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
 
       const user = new User({
         name,
         email,
-        password,
+        password: hashedPassword,
         role: role || 'customer',
         isVerified: false,
         otp,
-        otpExpiry: Date.now() + 10 * 60 * 1000, // 10 mins
+        otpExpiry: Date.now() + 10 * 60 * 1000, // 10 minutes
       });
 
-      const salt = await bcrypt.genSalt(10);
-      user.password = await bcrypt.hash(password, salt);
       await user.save();
 
-      // Send OTP email (non-blocking)
-      try {
-        await transporter.sendMail({
-          from: process.env.EMAIL_USER,
-          to: email,
-          subject: 'Verify your email',
-          text: `Your OTP is ${otp}. It expires in 10 minutes.`,
-        });
-      } catch (mailErr) {
-        console.error('OTP email error:', mailErr.message);
-      }
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Verify your email',
+        text: `Your OTP is ${otp}. It expires in 10 minutes.`,
+      });
 
       res.json({
         msg: 'Signup successful. OTP sent to email.',
@@ -142,7 +168,6 @@ router.post(
       if (user.isVerified)
         return res.status(400).json({ msg: 'Already verified' });
 
-      // ✅ STRING COMPARISON
       if (user.otp !== otp)
         return res.status(400).json({ msg: 'Invalid OTP' });
 
@@ -154,7 +179,10 @@ router.post(
       user.otpExpiry = null;
       await user.save();
 
-      const payload = { user: { id: user.id, role: user.role } };
+      const payload = {
+        user: { id: user.id, role: user.role },
+      };
+
       const token = jwt.sign(payload, process.env.JWT_SECRET, {
         expiresIn: '1h',
       });
@@ -197,7 +225,10 @@ router.post(
       if (!isMatch)
         return res.status(400).json({ msg: 'Invalid credentials' });
 
-      const payload = { user: { id: user.id, role: user.role } };
+      const payload = {
+        user: { id: user.id, role: user.role },
+      };
+
       const token = jwt.sign(payload, process.env.JWT_SECRET, {
         expiresIn: '1h',
       });

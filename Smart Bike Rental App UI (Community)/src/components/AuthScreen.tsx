@@ -36,6 +36,24 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
 
   const API_URL = 'http://localhost:5000/api/auth';
 
+const isAuthorizedEmail = (email: string) => {
+  const allowedDomains = [
+    'gmail.com',
+    'yahoo.com',
+    'outlook.com',
+    'hotmail.com',
+    'icloud.com',
+    'protonmail.com',
+    'bmsce.ac.in',
+  ];
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const domain = normalizedEmail.split('@')[1];
+
+  return !!domain && allowedDomains.includes(domain);
+};
+
+
   // ================= LOGIN =================
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,9 +75,16 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
     }
   };
 
-  // ================= SIGNUP =================
+  // ================= SIGNUP (UPDATED) =================
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // ✅ NEW: email validation before OTP
+    if (!isAuthorizedEmail(signupEmail.trim())) {
+      toast.error('Please use a valid authorized email ID');
+      return;
+    }
+
     setLoading(true);
     try {
       await axios.post(`${API_URL}/signup`, {
@@ -83,6 +108,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
   // ================= VERIFY OTP =================
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!/^\d{6}$/.test(otpValue)) {
       toast.error('OTP must be 6 digits');
       return;
@@ -109,7 +135,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
     }
   };
 
-  // ================= RESEND OTP (FIXED) =================
+  // ================= RESEND OTP =================
   const handleResendOtp = async () => {
     setOtpResendLoading(true);
     try {
@@ -139,7 +165,6 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
       <div className="w-full max-w-md bg-white rounded-3xl shadow-lg overflow-hidden">
-
         <div className="bg-gradient-to-br from-[#007BFF] to-[#0056b3] px-8 pt-12 pb-16 text-center">
           <div className="flex justify-center gap-3 mb-3">
             <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
