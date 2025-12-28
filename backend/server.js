@@ -50,8 +50,8 @@ if (process.env.NODE_ENV === 'production') {
 
   app.use(express.static(frontendPath));
 
-  // React catch-all route
-  app.get('*', (req, res) => {
+  // React catch-all route (fixed for latest Express)
+  app.get('/:wildcard(*)', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
 }
