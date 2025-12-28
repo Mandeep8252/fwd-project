@@ -7,14 +7,14 @@ const User = require('../models/User');
 const nodemailer = require('nodemailer');
 
 // =====================
-// ENV SAFETY CHECK
+// ENV CHECK
 // =====================
 if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS || !process.env.JWT_SECRET) {
-  console.error('❌ Missing EMAIL_USER / EMAIL_PASS / JWT_SECRET in environment');
+  console.error('❌ Missing env variables');
 }
 
 // =====================
-// Nodemailer Config (Render-safe)
+// MAIL TRANSPORTER
 // =====================
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -22,13 +22,10 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  tls: {
-    rejectUnauthorized: false,
-  },
 });
 
 // =====================
-// Allowed Email Domains
+// EMAIL DOMAIN CHECK
 // =====================
 const isAuthorizedEmail = (email) => {
   const allowedDomains = [
@@ -40,13 +37,11 @@ const isAuthorizedEmail = (email) => {
     'protonmail.com',
     'bmsce.ac.in',
   ];
-
-  const domain = email.split('@')[1];
-  return allowedDomains.includes(domain);
+  return allowedDomains.includes(email.split('@')[1]);
 };
 
 // =====================
-// SIGNUP
+// SIGNUP (FIXED)
 // =====================
 router.post(
   '/signup',
@@ -64,58 +59,60 @@ router.post(
     const { name, email, password, role } = req.body;
 
     if (!isAuthorizedEmail(email)) {
-      return res.status(400).json({
-        msg: 'Please use a valid authorized email ID',
-      });
+      return res.status(400).json({ msg: 'Unauthorized email domain' });
     }
 
     try {
       let user = await User.findOne({ email });
 
-      // ❌ Block already verified users
       if (user && user.isVerified) {
         return res.status(400).json({ msg: 'User already exists' });
       }
 
-      // 🔥 Remove unverified users (OTP failed / retry case)
       if (user && !user.isVerified) {
         await User.deleteOne({ email });
       }
 
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const hashedPassword = await bcrypt.hash(password, 10);
 
       user = new User({
         name,
         email,
-        password: hashedPassword,
+        password: await bcrypt.hash(password, 10),
         role: role || 'customer',
         isVerified: false,
         otp,
-        otpExpiry: Date.now() + 10 * 60 * 1000, // 10 min
+        otpExpiry: Date.now() + 10 * 60 * 1000,
       });
 
       await user.save();
 
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Verify your email',
-        text: `Your OTP is ${otp}. It expires in 10 minutes.`,
+      // ✅ Respond immediately
+      res.status(200).json({ msg: 'OTP sent successfully' });
+
+      // ✅ Send mail async
+      setImmediate(async () => {
+        try {
+          await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Verify your email',
+            text: `Your OTP is ${otp}. It expires in 10 minutes.`,
+          });
+        } catch (err) {
+          console.error('❌ Signup mail failed:', err.message);
+        }
       });
 
-      res.status(200).json({
-        msg: 'OTP sent to email',
-      });
     } catch (err) {
       console.error('Signup error:', err);
-      res.status(500).json({ msg: 'Server error' });
+      res.status(500).json({ msg: 'Server error during signup' });
     }
   }
 );
 
 // =====================
-// RESEND OTP
+// RESEND OTP (FIXED)
 // =====================
 router.post(
   '/resend-otp',
@@ -131,22 +128,30 @@ router.post(
       const user = await User.findOne({ email });
       if (!user) return res.status(400).json({ msg: 'User not found' });
       if (user.isVerified)
-        return res.status(400).json({ msg: 'User already verified' });
+        return res.status(400).json({ msg: 'Already verified' });
 
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
       user.otp = otp;
       user.otpExpiry = Date.now() + 10 * 60 * 1000;
       await user.save();
 
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Resend OTP',
-        text: `Your new OTP is ${otp}. It expires in 10 minutes.`,
+      // ✅ Respond immediately
+      res.status(200).json({ msg: 'OTP resent successfully' });
+
+      // ✅ Send mail async
+      setImmediate(async () => {
+        try {
+          await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Resend OTP',
+            text: `Your new OTP is ${otp}. It expires in 10 minutes.`,
+          });
+        } catch (err) {
+          console.error('❌ Resend OTP mail failed:', err.message);
+        }
       });
 
-      res.status(200).json({ msg: 'OTP resent successfully' });
     } catch (err) {
       console.error('Resend OTP error:', err);
       res.status(500).json({ msg: 'Server error' });
@@ -159,10 +164,7 @@ router.post(
 // =====================
 router.post(
   '/verify-otp',
-  [
-    check('email').isEmail(),
-    check('otp').isLength({ min: 6, max: 6 }),
-  ],
+  [check('email').isEmail(), check('otp').isLength({ min: 6, max: 6 })],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty())
@@ -173,8 +175,6 @@ router.post(
     try {
       const user = await User.findOne({ email });
       if (!user) return res.status(400).json({ msg: 'User not found' });
-      if (user.isVerified)
-        return res.status(400).json({ msg: 'Already verified' });
 
       if (user.otp !== otp)
         return res.status(400).json({ msg: 'Invalid OTP' });
@@ -187,9 +187,7 @@ router.post(
       user.otpExpiry = null;
       await user.save();
 
-      res.status(200).json({
-        msg: 'Email verified successfully',
-      });
+      res.status(200).json({ msg: 'Email verified successfully' });
     } catch (err) {
       console.error('Verify OTP error:', err);
       res.status(500).json({ msg: 'Server error' });
@@ -212,33 +210,19 @@ router.post(
 
     try {
       const user = await User.findOne({ email });
-      if (!user) return res.status(400).json({ msg: 'Invalid credentials' });
-      if (!user.isVerified)
-        return res.status(400).json({ msg: 'Email not verified' });
+      if (!user || !user.isVerified)
+        return res.status(400).json({ msg: 'Invalid credentials' });
 
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch)
         return res.status(400).json({ msg: 'Invalid credentials' });
 
-      const payload = {
-        user: {
-          id: user.id,
-          role: user.role,
-        },
-      };
+      const token = jwt.sign(
+        { id: user.id, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
 
-      const token = jwt.sign(payload, process.env.JWT_SECRET, {
-        expiresIn: '1h',
-      });
-
-      // ✅ Cookie (optional, works on Render)
-      res.cookie('token', token, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'None',
-      });
-
-      // ✅ Token ALSO sent in response (frontend needs this)
       res.status(200).json({
         msg: 'Login successful',
         token,
