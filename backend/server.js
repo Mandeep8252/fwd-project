@@ -50,6 +50,7 @@ if (process.env.NODE_ENV === 'production') {
 
   app.use(express.static(frontendPath));
 
+  // React catch-all route
   app.get('*', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
