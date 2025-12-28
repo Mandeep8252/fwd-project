@@ -10,18 +10,33 @@ const nodemailer = require('nodemailer');
 // ENV CHECK
 // =====================
 if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS || !process.env.JWT_SECRET) {
-  console.error('❌ Missing env variables');
+  console.error('❌ Missing EMAIL_USER / EMAIL_PASS / JWT_SECRET');
 }
 
 // =====================
-// MAIL TRANSPORTER
+// MAIL TRANSPORTER (RENDER + GMAIL SAFE)
 // =====================
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  tls: {
+    rejectUnauthorized: false,
+  },
+  connectionTimeout: 10000,
+});
+
+// Verify transporter on startup
+transporter.verify((err) => {
+  if (err) {
+    console.error('❌ Mail transporter error:', err.message);
+  } else {
+    console.log('✅ Mail server ready');
+  }
 });
 
 // =====================
@@ -41,7 +56,7 @@ const isAuthorizedEmail = (email) => {
 };
 
 // =====================
-// SIGNUP (FIXED)
+// SIGNUP
 // =====================
 router.post(
   '/signup',
@@ -65,10 +80,12 @@ router.post(
     try {
       let user = await User.findOne({ email });
 
+      // Already verified
       if (user && user.isVerified) {
         return res.status(400).json({ msg: 'User already exists' });
       }
 
+      // Delete unverified user (retry signup)
       if (user && !user.isVerified) {
         await User.deleteOne({ email });
       }
@@ -87,20 +104,20 @@ router.post(
 
       await user.save();
 
-      // ✅ Respond immediately
+      // ✅ Respond immediately (NO WAIT)
       res.status(200).json({ msg: 'OTP sent successfully' });
 
-      // ✅ Send mail async
+      // ✅ Send email asynchronously
       setImmediate(async () => {
         try {
           await transporter.sendMail({
-            from: process.env.EMAIL_USER,
+            from: `"Smart Bike" <${process.env.EMAIL_USER}>`,
             to: email,
             subject: 'Verify your email',
             text: `Your OTP is ${otp}. It expires in 10 minutes.`,
           });
         } catch (err) {
-          console.error('❌ Signup mail failed:', err.message);
+          console.error('❌ Signup email failed:', err.message);
         }
       });
 
@@ -112,7 +129,7 @@ router.post(
 );
 
 // =====================
-// RESEND OTP (FIXED)
+// RESEND OTP
 // =====================
 router.post(
   '/resend-otp',
@@ -128,21 +145,20 @@ router.post(
       const user = await User.findOne({ email });
       if (!user) return res.status(400).json({ msg: 'User not found' });
       if (user.isVerified)
-        return res.status(400).json({ msg: 'Already verified' });
+        return res.status(400).json({ msg: 'User already verified' });
 
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
       user.otp = otp;
       user.otpExpiry = Date.now() + 10 * 60 * 1000;
       await user.save();
 
-      // ✅ Respond immediately
       res.status(200).json({ msg: 'OTP resent successfully' });
 
-      // ✅ Send mail async
       setImmediate(async () => {
         try {
           await transporter.sendMail({
-            from: process.env.EMAIL_USER,
+            from: `"Smart Bike" <${process.env.EMAIL_USER}>`,
             to: email,
             subject: 'Resend OTP',
             text: `Your new OTP is ${otp}. It expires in 10 minutes.`,
@@ -164,7 +180,10 @@ router.post(
 // =====================
 router.post(
   '/verify-otp',
-  [check('email').isEmail(), check('otp').isLength({ min: 6, max: 6 })],
+  [
+    check('email').isEmail(),
+    check('otp').isLength({ min: 6, max: 6 }),
+  ],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty())
