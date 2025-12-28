@@ -30,14 +30,9 @@ app.get('/api', (req, res) => {
 // MongoDB Connection
 // =======================
 mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(process.env.MONGO_URI)
   .then(() => console.log('✅ MongoDB connected'))
-  .catch((err) =>
-    console.error('❌ MongoDB connection error:', err.message)
-  );
+  .catch((err) => console.error('❌ MongoDB connection error:', err.message));
 
 // =======================
 // Serve React Frontend (Production)
@@ -45,13 +40,13 @@ mongoose
 if (process.env.NODE_ENV === 'production') {
   const frontendPath = path.join(
     __dirname,
-    '../Smart Bike Rental App UI (Community)/build'
+    '../smart-bike-frontend/build' // updated folder name
   );
 
   // Serve static files
   app.use(express.static(frontendPath));
 
-  // React catch-all route using RegExp (works with Node 25+)
+  // React catch-all route
   app.get(/^\/.*$/, (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
