@@ -9,8 +9,8 @@ const nodemailer = require('nodemailer');
 // =====================
 // ENV SAFETY CHECK
 // =====================
-if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-  console.error('❌ EMAIL_USER or EMAIL_PASS not set in environment');
+if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS || !process.env.JWT_SECRET) {
+  console.error('❌ Missing EMAIL_USER / EMAIL_PASS / JWT_SECRET in environment');
 }
 
 // =====================
@@ -35,6 +35,9 @@ const isAuthorizedEmail = (email) => {
     'gmail.com',
     'yahoo.com',
     'outlook.com',
+    'hotmail.com',
+    'icloud.com',
+    'protonmail.com',
     'bmsce.ac.in',
   ];
 
@@ -61,29 +64,35 @@ router.post(
     const { name, email, password, role } = req.body;
 
     if (!isAuthorizedEmail(email)) {
-      return res
-        .status(400)
-        .json({ msg: 'Please use a valid authorized email ID' });
+      return res.status(400).json({
+        msg: 'Please use a valid authorized email ID',
+      });
     }
 
     try {
-      const existingUser = await User.findOne({ email });
-      if (existingUser)
+      let user = await User.findOne({ email });
+
+      // ❌ Block already verified users
+      if (user && user.isVerified) {
         return res.status(400).json({ msg: 'User already exists' });
+      }
+
+      // 🔥 Remove unverified users (OTP failed / retry case)
+      if (user && !user.isVerified) {
+        await User.deleteOne({ email });
+      }
 
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-
-      const user = new User({
+      user = new User({
         name,
         email,
         password: hashedPassword,
         role: role || 'customer',
         isVerified: false,
         otp,
-        otpExpiry: Date.now() + 10 * 60 * 1000,
+        otpExpiry: Date.now() + 10 * 60 * 1000, // 10 min
       });
 
       await user.save();
@@ -95,13 +104,12 @@ router.post(
         text: `Your OTP is ${otp}. It expires in 10 minutes.`,
       });
 
-      res.json({
-        msg: 'Signup successful. OTP sent to email.',
-        email,
+      res.status(200).json({
+        msg: 'OTP sent to email',
       });
     } catch (err) {
-      console.error(err);
-      res.status(500).send('Server error');
+      console.error('Signup error:', err);
+      res.status(500).json({ msg: 'Server error' });
     }
   }
 );
@@ -138,10 +146,10 @@ router.post(
         text: `Your new OTP is ${otp}. It expires in 10 minutes.`,
       });
 
-      res.json({ msg: 'OTP resent successfully' });
+      res.status(200).json({ msg: 'OTP resent successfully' });
     } catch (err) {
-      console.error(err);
-      res.status(500).send('Server error');
+      console.error('Resend OTP error:', err);
+      res.status(500).json({ msg: 'Server error' });
     }
   }
 );
@@ -179,18 +187,18 @@ router.post(
       user.otpExpiry = null;
       await user.save();
 
-      res.json({
+      res.status(200).json({
         msg: 'Email verified successfully',
       });
     } catch (err) {
-      console.error(err);
-      res.status(500).send('Server error');
+      console.error('Verify OTP error:', err);
+      res.status(500).json({ msg: 'Server error' });
     }
   }
 );
 
 // =====================
-// LOGIN (✅ FIXED FOR LIVE DEPLOYMENT)
+// LOGIN
 // =====================
 router.post(
   '/login',
@@ -213,22 +221,27 @@ router.post(
         return res.status(400).json({ msg: 'Invalid credentials' });
 
       const payload = {
-        user: { id: user.id, role: user.role },
+        user: {
+          id: user.id,
+          role: user.role,
+        },
       };
 
       const token = jwt.sign(payload, process.env.JWT_SECRET, {
         expiresIn: '1h',
       });
 
-      // ✅ COOKIE SET (REQUIRED FOR LIVE LOGIN)
+      // ✅ Cookie (optional, works on Render)
       res.cookie('token', token, {
         httpOnly: true,
         secure: true,
         sameSite: 'None',
       });
 
+      // ✅ Token ALSO sent in response (frontend needs this)
       res.status(200).json({
         msg: 'Login successful',
+        token,
         user: {
           name: user.name,
           email: user.email,
@@ -236,8 +249,8 @@ router.post(
         },
       });
     } catch (err) {
-      console.error(err);
-      res.status(500).send('Server error');
+      console.error('Login error:', err);
+      res.status(500).json({ msg: 'Server error' });
     }
   }
 );
