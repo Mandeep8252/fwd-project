@@ -9,7 +9,7 @@ interface OnboardingScreenProps {
 }
 
 type Slide = {
-  icon: React.ComponentType<any>;
+  icon: any;
   title: string;
   description: string;
   color: string;
@@ -20,19 +20,17 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
   const [isOnline, setIsOnline] = useState(true);
   const [locationGranted, setLocationGranted] = useState<boolean | null>(null);
 
-  // -------------------------------
-  // ENVIRONMENT CHECKS
-  // -------------------------------
+  /* -------------------------------
+     ENVIRONMENT CHECKS
+  --------------------------------*/
 
   // Internet status
   useEffect(() => {
     setIsOnline(navigator.onLine);
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -50,21 +48,25 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
       ?.query({ name: 'geolocation' as PermissionName })
       .then((result) => {
         setLocationGranted(result.state === 'granted');
-        result.onchange = () => setLocationGranted(result.state === 'granted');
+        result.onchange = () => {
+          setLocationGranted(result.state === 'granted');
+        };
       })
       .catch(() => setLocationGranted(false));
   }, []);
 
   // Skip onboarding if already seen
   useEffect(() => {
-    if (localStorage.getItem('hasSeenOnboarding') === 'true') {
+    const seen = localStorage.getItem('hasSeenOnboarding');
+    if (seen === 'true') {
       onComplete();
     }
   }, [onComplete]);
 
-  // -------------------------------
-  // SLIDES (DYNAMIC)
-  // -------------------------------
+  /* -------------------------------
+     SLIDES (DYNAMIC)
+  --------------------------------*/
+
   const slides: Slide[] = useMemo(() => {
     const baseSlides: Slide[] = [];
 
@@ -113,9 +115,10 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
   const slide = slides[currentSlide];
   const Icon = slide.icon;
 
-  // -------------------------------
-  // HANDLERS
-  // -------------------------------
+  /* -------------------------------
+     HANDLERS
+  --------------------------------*/
+
   const handleNext = () => {
     if (currentSlide < slides.length - 1) {
       setCurrentSlide((prev) => prev + 1);
@@ -125,14 +128,19 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
     }
   };
 
-  // -------------------------------
-  // UI
-  // -------------------------------
+  /* -------------------------------
+     UI
+  --------------------------------*/
+
   return (
     <div className="relative w-full h-full bg-white flex flex-col">
       {/* Skip */}
       <div className="absolute top-6 right-6 z-10">
-        <Button variant="ghost" onClick={onSkip} className="text-gray-500 hover:text-gray-700">
+        <Button
+          variant="ghost"
+          onClick={onSkip}
+          className="text-gray-500 hover:text-gray-700"
+        >
           Skip
         </Button>
       </div>

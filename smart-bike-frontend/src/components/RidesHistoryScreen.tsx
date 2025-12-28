@@ -34,8 +34,7 @@ export function RidesHistoryScreen({ onBack }: RidesHistoryScreenProps) {
   const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Hardcoded backend URL
-  const API_URL = "https://smart-bike-backend.onrender.com/api/rides";
+  const API_URL = 'http://localhost:5000/api/rides';
 
   // =====================
   // Fetch Ride History

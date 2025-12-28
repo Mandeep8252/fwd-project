@@ -20,11 +20,12 @@ export function OTPVerificationScreen({
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Use deployed backend URL
-  const API_URL = "https://smart-bike-backend.onrender.com/api/auth";
+  const API_URL = "http://localhost:5000/api/auth";
 
-  // Simple email format check
-  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  // Simple email format check (UX improvement)
+  const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
 
   const handleVerify = async () => {
     if (!email) {
@@ -44,15 +45,14 @@ export function OTPVerificationScreen({
 
     setLoading(true);
     try {
-      const res = await axios.post(
-        `${API_URL}/verify-otp`,
-        { email, otp },
-        { withCredentials: true } // ensures cookies are sent/received if backend uses them
-      );
+      const res = await axios.post(`${API_URL}/verify-otp`, {
+        email,
+        otp,
+      });
 
       toast.success(res.data.msg || "Email verified successfully!");
 
-      // Save auth data only after email verification
+      // Save auth data only AFTER email is verified
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
 

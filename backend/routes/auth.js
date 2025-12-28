@@ -14,16 +14,18 @@ if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS || !process.env.JWT_SECRE
 }
 
 // =====================
-// MAIL TRANSPORTER (BREVO – RENDER SAFE)
+// MAIL TRANSPORTER (GMAIL – RENDER SAFE)
 // =====================
 const transporter = nodemailer.createTransport({
-  host: 'smtp-relay.brevo.com',
-  port: 587,
-  secure: false,
+  service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: process.env.EMAIL_USER, // Must be Gmail account
+    pass: process.env.EMAIL_PASS, // App password recommended
   },
+  tls: {
+    rejectUnauthorized: false,
+  },
+  connectionTimeout: 10000,
 });
 
 // Verify transporter
@@ -105,7 +107,7 @@ router.post(
       setImmediate(async () => {
         try {
           await transporter.sendMail({
-            from: '"Smart Bike" <no-reply@smartbike.com>',
+            from: `"Smart Bike" <${process.env.EMAIL_USER}>`,
             to: email,
             subject: 'Verify your email',
             text: `Your OTP is ${otp}. It expires in 10 minutes.`,
@@ -151,7 +153,7 @@ router.post(
       setImmediate(async () => {
         try {
           await transporter.sendMail({
-            from: '"Smart Bike" <no-reply@smartbike.com>',
+            from: `"Smart Bike" <${process.env.EMAIL_USER}>`,
             to: email,
             subject: 'Resend OTP',
             text: `Your new OTP is ${otp}. It expires in 10 minutes.`,
