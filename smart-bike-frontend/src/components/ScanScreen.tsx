@@ -4,6 +4,7 @@ import { ArrowLeft, Camera, Nfc, Hash, Check } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card } from './ui/card';
+import axios from 'axios';
 
 interface ScanScreenProps {
   onUnlock: () => void;
@@ -14,15 +15,46 @@ export function ScanScreen({ onUnlock, onBack }: ScanScreenProps) {
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
+  const [manualCode, setManualCode] = useState('');
 
-  const handleScan = () => {
+  // Updated backend URL
+  const API_URL = "https://smart-bike-backend.onrender.com";
+
+  const handleScan = async () => {
     setIsScanning(true);
-    setTimeout(() => {
-      setUnlocked(true);
+    try {
+      // Example API call for scan/NFC unlock
+      // const token = localStorage.getItem('token');
+      // await axios.post(`${API_URL}/api/vehicle/unlock`, {}, {
+      //   headers: { 'x-auth-token': token },
+      // });
+      
       setTimeout(() => {
-        onUnlock();
-      }, 1500);
-    }, 2000);
+        setUnlocked(true);
+        setTimeout(() => onUnlock(), 1500);
+      }, 2000);
+    } catch (err) {
+      console.error('Unlock failed', err);
+      setIsScanning(false);
+    }
+  };
+
+  const handleManualUnlock = async () => {
+    if (manualCode.length !== 6) return;
+    setIsScanning(true);
+    try {
+      // Example API call for manual code unlock
+      // const token = localStorage.getItem('token');
+      // await axios.post(`${API_URL}/api/vehicle/unlock`, { code: manualCode }, {
+      //   headers: { 'x-auth-token': token },
+      // });
+
+      setUnlocked(true);
+      setTimeout(() => onUnlock(), 1500);
+    } catch (err) {
+      console.error('Manual unlock failed', err);
+      setIsScanning(false);
+    }
   };
 
   return (
@@ -51,8 +83,8 @@ export function ScanScreen({ onUnlock, onBack }: ScanScreenProps) {
             animate={{ scale: 1, opacity: 1 }}
             className="relative z-10 flex flex-col items-center"
           >
-            {/* QR Scan Frame */}
             <div className="relative w-64 h-64">
+              {/* QR Scan Frame */}
               <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-[#A6FF00] rounded-tl-3xl" />
               <div className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-[#A6FF00] rounded-tr-3xl" />
               <div className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-[#A6FF00] rounded-bl-3xl" />
@@ -67,7 +99,6 @@ export function ScanScreen({ onUnlock, onBack }: ScanScreenProps) {
                 />
               )}
             </div>
-
             <p className="text-white text-center mt-6">Position the QR code within the frame</p>
           </motion.div>
         ) : (
@@ -125,6 +156,8 @@ export function ScanScreen({ onUnlock, onBack }: ScanScreenProps) {
                 <Input
                   placeholder="Enter 6-digit code"
                   maxLength={6}
+                  value={manualCode}
+                  onChange={(e) => setManualCode(e.target.value)}
                   className="h-12 rounded-xl text-center text-lg tracking-widest"
                 />
               </div>
@@ -137,7 +170,7 @@ export function ScanScreen({ onUnlock, onBack }: ScanScreenProps) {
                   Cancel
                 </Button>
                 <Button
-                  onClick={handleScan}
+                  onClick={handleManualUnlock}
                   className="flex-1 bg-[#007BFF] hover:bg-[#0056b3] text-white rounded-xl"
                 >
                   Unlock

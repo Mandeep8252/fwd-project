@@ -4,6 +4,7 @@ import { Check, Clock, MapPin, Star, Download, CreditCard } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { toast } from 'sonner@2.0.3';
+import axios from 'axios';
 
 interface RideSummaryScreenProps {
   rideData: {
@@ -33,9 +34,25 @@ export function RideSummaryScreen({ rideData, onComplete }: RideSummaryScreenPro
   const co2Saved = rideData.distance * co2PerKm;
   const petrolSaved = rideData.distance * petrolPerKm;
 
-  const handlePayment = () => {
-    toast.success('Payment successful!');
-    setTimeout(() => onComplete(), 1500);
+  // =====================
+  // Backend URL
+  // =====================
+  const API_URL = "https://smart-bike-backend.onrender.com";
+
+  const handlePayment = async () => {
+    try {
+      // Example API call to save payment and ride summary
+      // const token = localStorage.getItem('token');
+      // await axios.post(`${API_URL}/api/rides/complete`, rideData, {
+      //   headers: { 'x-auth-token': token },
+      // });
+
+      toast.success('Payment successful!');
+      setTimeout(() => onComplete(), 1500);
+    } catch (err) {
+      console.error('Payment failed', err);
+      toast.error('Payment failed!');
+    }
   };
 
   return (
@@ -101,9 +118,7 @@ export function RideSummaryScreen({ rideData, onComplete }: RideSummaryScreenPro
               </div>
             </div>
 
-            {/* =====================
-                Environment Metrics
-            ===================== */}
+            {/* Environment Metrics */}
             <div className="flex justify-between mt-2 text-sm text-gray-600">
               <div className="flex flex-col items-center">
                 <p className="font-medium text-[#1E1E1E]">CO₂ Saved</p>

@@ -8,6 +8,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import type { Screen } from '../App';
 import { OpenStreetMapProvider } from 'leaflet-geosearch';
+import axios from 'axios';
 
 // Fix Leaflet default marker icon
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -34,13 +35,6 @@ interface HomeScreenProps {
   onNavigate: (screen: Screen) => void;
 }
 
-const nearbyBikes: BikeData[] = [
-  { id: 1, type: 'scooter', battery: 95, distance: 0.2, lat: 12.9719, lng: 77.5938 },
-  { id: 2, type: 'bike', battery: 78, distance: 0.4, lat: 12.9721, lng: 77.5950 },
-  { id: 3, type: 'scooter', battery: 88, distance: 0.6, lat: 12.9723, lng: 77.5945 },
-  { id: 4, type: 'bike', battery: 92, distance: 0.8, lat: 12.9715, lng: 77.5940 },
-];
-
 const MapMover = ({ position }: { position: [number, number] }) => {
   const map = useMap();
   map.setView(position, 15);
@@ -52,22 +46,52 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [searchValue, setSearchValue] = useState('');
   const [mapPosition, setMapPosition] = useState<[number, number]>([12.9716, 77.5946]);
   const provider = useMemo(() => new OpenStreetMapProvider(), []);
-
   const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
+  const [nearbyBikes, setNearbyBikes] = useState<BikeData[]>([]);
 
+  // Get user from localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) setUser(JSON.parse(storedUser));
   }, []);
 
+  // Get user geolocation
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setMapPosition([pos.coords.latitude, pos.coords.longitude]),
+        () => console.warn('Geolocation permission denied, using default location')
+      );
+    }
+  }, []);
+
+  // Fetch nearby bikes from backend
+  useEffect(() => {
+    const fetchNearbyBikes = async () => {
+      try {
+        const res = await axios.get('https://smart-bike-backend.onrender.com/api/bikes', {
+          withCredentials: true,
+        });
+        setNearbyBikes(res.data);
+      } catch (err) {
+        console.error('Failed to fetch nearby bikes:', err);
+      }
+    };
+    fetchNearbyBikes();
+  }, []);
+
   const handleSearch = async () => {
     if (!searchValue) return;
-    const results = await provider.search({ query: searchValue });
-    if (results.length > 0) {
-      const { x, y } = results[0];
-      setMapPosition([y, x]);
-    } else {
-      alert('Location not found!');
+    try {
+      const results = await provider.search({ query: searchValue });
+      if (results.length > 0) {
+        const { x, y } = results[0];
+        setMapPosition([y, x]);
+      } else {
+        alert('Location not found!');
+      }
+    } catch (err) {
+      console.error('Search failed', err);
     }
   };
 

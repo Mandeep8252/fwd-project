@@ -12,9 +12,10 @@ export function RideScreen({ onEndRide }: RideScreenProps) {
   const [duration, setDuration] = useState(0); // seconds
   const [distance, setDistance] = useState(0); // km
   const [battery, setBattery] = useState(100); // %
+  
   const baseFare = 5; // ₹5 base fare
   const farePerMinute = 2.5; // ₹2.50 per minute
-  const distancePerSecond = 0.007; // 7 meters per second in km
+  const distancePerSecond = 0.007; // ~7 meters per second in km
 
   // Timer effect
   useEffect(() => {
@@ -30,7 +31,6 @@ export function RideScreen({ onEndRide }: RideScreenProps) {
   const fare = baseFare + (duration / 60) * farePerMinute;
   const speed = (distance / (duration / 3600 || 1)).toFixed(1); // km/h
 
-  // Format time as HH:MM:SS or MM:SS
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -63,48 +63,22 @@ export function RideScreen({ onEndRide }: RideScreenProps) {
 
         {/* Stats Grid */}
         <div className="w-full max-w-3xl grid grid-cols-2 md:grid-cols-4 gap-4">
-          <motion.div whileHover={{ scale: 1.05 }}>
-            <Card className="p-4 rounded-2xl bg-white/10 border-2 border-white/20">
-              <div className="flex items-center gap-2 mb-2">
-                <MapPin className="w-5 h-5 text-[#A6FF00]" />
-                <span className="text-white/70">Distance</span>
-              </div>
-              <p className="text-white text-2xl">{distance.toFixed(2)}</p>
-              <p className="text-white/70">km</p>
-            </Card>
-          </motion.div>
-
-          <motion.div whileHover={{ scale: 1.05 }}>
-            <Card className="p-4 rounded-2xl bg-white/10 border-2 border-white/20">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[#A6FF00] text-xl">₹</span>
-                <span className="text-white/70">Fare</span>
-              </div>
-              <p className="text-white text-2xl">{fare.toFixed(2)}</p>
-              <p className="text-white/70">estimated</p>
-            </Card>
-          </motion.div>
-
-          <motion.div whileHover={{ scale: 1.05 }}>
-            <Card className="p-4 rounded-2xl bg-white/10 border-2 border-white/20">
-              <div className="flex items-center gap-2 mb-2">
-                <Battery className="w-5 h-5 text-[#A6FF00]" />
-                <span className="text-white/70">Battery</span>
-              </div>
-              <p className="text-white text-2xl">{battery.toFixed(0)}%</p>
-            </Card>
-          </motion.div>
-
-          <motion.div whileHover={{ scale: 1.05 }}>
-            <Card className="p-4 rounded-2xl bg-white/10 border-2 border-white/20">
-              <div className="flex items-center gap-2 mb-2">
-                <Navigation2 className="w-5 h-5 text-[#A6FF00]" />
-                <span className="text-white/70">Speed</span>
-              </div>
-              <p className="text-white text-2xl">{speed}</p>
-              <p className="text-white/70">km/h</p>
-            </Card>
-          </motion.div>
+          {[
+            { icon: MapPin, label: 'Distance', value: `${distance.toFixed(2)} km` },
+            { icon: Shield, label: 'Fare', value: `₹${fare.toFixed(2)}` },
+            { icon: Battery, label: 'Battery', value: `${battery.toFixed(0)}%` },
+            { icon: Navigation2, label: 'Speed', value: `${speed} km/h` },
+          ].map((stat, index) => (
+            <motion.div key={index} whileHover={{ scale: 1.05 }}>
+              <Card className="p-4 rounded-2xl bg-white/10 border-2 border-white/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <stat.icon className="w-5 h-5 text-[#A6FF00]" />
+                  <span className="text-white/70">{stat.label}</span>
+                </div>
+                <p className="text-white text-2xl">{stat.value}</p>
+              </Card>
+            </motion.div>
+          ))}
         </div>
       </div>
 

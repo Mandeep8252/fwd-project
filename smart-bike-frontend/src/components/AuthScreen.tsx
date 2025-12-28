@@ -34,35 +34,36 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
   const otpInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
 
-  const API_URL = 'http://localhost:5000/api/auth';
+  // ✅ Deployed backend URL
+  const API_URL = 'https://smart-bike-backend.onrender.com/api/auth';
 
-const isAuthorizedEmail = (email: string) => {
-  const allowedDomains = [
-    'gmail.com',
-    'yahoo.com',
-    'outlook.com',
-    'hotmail.com',
-    'icloud.com',
-    'protonmail.com',
-    'bmsce.ac.in',
-  ];
+  const isAuthorizedEmail = (email: string) => {
+    const allowedDomains = [
+      'gmail.com',
+      'yahoo.com',
+      'outlook.com',
+      'hotmail.com',
+      'icloud.com',
+      'protonmail.com',
+      'bmsce.ac.in',
+    ];
 
-  const normalizedEmail = email.trim().toLowerCase();
-  const domain = normalizedEmail.split('@')[1];
+    const normalizedEmail = email.trim().toLowerCase();
+    const domain = normalizedEmail.split('@')[1];
 
-  return !!domain && allowedDomains.includes(domain);
-};
-
+    return !!domain && allowedDomains.includes(domain);
+  };
 
   // ================= LOGIN =================
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post(`${API_URL}/login`, {
-        email: loginEmail.trim(),
-        password: loginPassword,
-      });
+      const res = await axios.post(
+        `${API_URL}/login`,
+        { email: loginEmail.trim(), password: loginPassword },
+        { withCredentials: true } // ✅ send cookies
+      );
 
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
@@ -75,24 +76,25 @@ const isAuthorizedEmail = (email: string) => {
     }
   };
 
-  // ================= SIGNUP (UPDATED) =================
+  // ================= SIGNUP =================
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // ✅ NEW: email validation before OTP
     if (!isAuthorizedEmail(signupEmail.trim())) {
       toast.error('Please use a valid authorized email ID');
       return;
     }
-
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/signup`, {
-        name: signupName.trim(),
-        email: signupEmail.trim(),
-        password: signupPassword,
-        role: signupRole,
-      });
+      await axios.post(
+        `${API_URL}/signup`,
+        {
+          name: signupName.trim(),
+          email: signupEmail.trim(),
+          password: signupPassword,
+          role: signupRole,
+        },
+        { withCredentials: true } // ✅ send cookies
+      );
 
       toast.success('OTP sent to your email');
       setOtpSent(true);
@@ -108,18 +110,17 @@ const isAuthorizedEmail = (email: string) => {
   // ================= VERIFY OTP =================
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!/^\d{6}$/.test(otpValue)) {
       toast.error('OTP must be 6 digits');
       return;
     }
-
     setLoading(true);
     try {
-      const res = await axios.post(`${API_URL}/verify-otp`, {
-        email: signupEmail.trim(),
-        otp: otpValue,
-      });
+      const res = await axios.post(
+        `${API_URL}/verify-otp`,
+        { email: signupEmail.trim(), otp: otpValue },
+        { withCredentials: true } // ✅ send cookies
+      );
 
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
@@ -139,9 +140,11 @@ const isAuthorizedEmail = (email: string) => {
   const handleResendOtp = async () => {
     setOtpResendLoading(true);
     try {
-      await axios.post(`${API_URL}/resend-otp`, {
-        email: signupEmail.trim(),
-      });
+      await axios.post(
+        `${API_URL}/resend-otp`,
+        { email: signupEmail.trim() },
+        { withCredentials: true } // ✅ send cookies
+      );
       toast.success('OTP resent');
       setOtpCooldown(60);
     } catch (err: any) {
@@ -186,9 +189,16 @@ const isAuthorizedEmail = (email: string) => {
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
                 <Label>Email</Label>
-                <Input value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
+                <Input
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                />
                 <Label>Password</Label>
-                <Input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
+                <Input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                />
                 <Button className="w-full" disabled={loading}>
                   {loading ? 'Loading...' : 'Login'}
                 </Button>
@@ -199,9 +209,22 @@ const isAuthorizedEmail = (email: string) => {
             <TabsContent value="signup">
               {!otpSent ? (
                 <form onSubmit={handleSignup} className="space-y-4">
-                  <Input placeholder="Name" value={signupName} onChange={(e) => setSignupName(e.target.value)} />
-                  <Input placeholder="Email" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} />
-                  <Input type="password" placeholder="Password" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} />
+                  <Input
+                    placeholder="Name"
+                    value={signupName}
+                    onChange={(e) => setSignupName(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Email"
+                    value={signupEmail}
+                    onChange={(e) => setSignupEmail(e.target.value)}
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Password"
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
+                  />
                   <Button className="w-full" disabled={loading}>
                     {loading ? 'Loading...' : 'Create Account'}
                   </Button>
@@ -212,7 +235,9 @@ const isAuthorizedEmail = (email: string) => {
                     ref={otpInputRef}
                     placeholder="Enter OTP"
                     value={otpValue}
-                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) =>
+                      setOtpValue(e.target.value.replace(/\D/g, ''))
+                    }
                   />
                   <Button className="w-full" disabled={loading}>
                     Verify OTP
@@ -223,7 +248,9 @@ const isAuthorizedEmail = (email: string) => {
                     disabled={otpCooldown > 0 || otpResendLoading}
                     className="w-full bg-gray-200 text-black"
                   >
-                    {otpCooldown > 0 ? `Resend OTP (${otpCooldown}s)` : 'Resend OTP'}
+                    {otpCooldown > 0
+                      ? `Resend OTP (${otpCooldown}s)`
+                      : 'Resend OTP'}
                   </Button>
                 </form>
               )}
