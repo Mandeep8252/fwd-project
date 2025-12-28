@@ -48,10 +48,11 @@ if (process.env.NODE_ENV === 'production') {
     '../Smart Bike Rental App UI (Community)/build'
   );
 
+  // Serve static files
   app.use(express.static(frontendPath));
 
-  // React catch-all route (fixed for Node 25+)
-  app.use('*', (req, res) => {
+  // React catch-all route using RegExp (works with Node 25+)
+  app.get(/^\/.*$/, (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
 }
