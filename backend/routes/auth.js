@@ -14,20 +14,17 @@ if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS || !process.env.JWT_SECRE
 }
 
 // =====================
-// MAIL TRANSPORTER (RENDER + GMAIL SAFE)
+// MAIL TRANSPORTER (RENDER + GMAIL FIXED)
 // =====================
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
+  port: 465,
+  secure: true, // ✅ REQUIRED
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  tls: {
-    rejectUnauthorized: false,
-  },
-  connectionTimeout: 10000,
+  connectionTimeout: 20000,
 });
 
 // Verify transporter on startup
@@ -80,12 +77,10 @@ router.post(
     try {
       let user = await User.findOne({ email });
 
-      // Already verified
       if (user && user.isVerified) {
         return res.status(400).json({ msg: 'User already exists' });
       }
 
-      // Delete unverified user (retry signup)
       if (user && !user.isVerified) {
         await User.deleteOne({ email });
       }
@@ -104,10 +99,10 @@ router.post(
 
       await user.save();
 
-      // ✅ Respond immediately (NO WAIT)
+      // ✅ respond instantly
       res.status(200).json({ msg: 'OTP sent successfully' });
 
-      // ✅ Send email asynchronously
+      // ✅ send mail async
       setImmediate(async () => {
         try {
           await transporter.sendMail({
