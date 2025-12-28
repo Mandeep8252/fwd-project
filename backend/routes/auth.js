@@ -20,10 +20,10 @@ const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // Gmail App Password
+    pass: process.env.EMAIL_PASS,
   },
   tls: {
-    rejectUnauthorized: false, // IMPORTANT for cloud hosting
+    rejectUnauthorized: false,
   },
 });
 
@@ -83,7 +83,7 @@ router.post(
         role: role || 'customer',
         isVerified: false,
         otp,
-        otpExpiry: Date.now() + 10 * 60 * 1000, // 10 minutes
+        otpExpiry: Date.now() + 10 * 60 * 1000,
       });
 
       await user.save();
@@ -179,21 +179,8 @@ router.post(
       user.otpExpiry = null;
       await user.save();
 
-      const payload = {
-        user: { id: user.id, role: user.role },
-      };
-
-      const token = jwt.sign(payload, process.env.JWT_SECRET, {
-        expiresIn: '1h',
-      });
-
       res.json({
-        token,
-        user: {
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        },
+        msg: 'Email verified successfully',
       });
     } catch (err) {
       console.error(err);
@@ -203,7 +190,7 @@ router.post(
 );
 
 // =====================
-// LOGIN
+// LOGIN (✅ FIXED FOR LIVE DEPLOYMENT)
 // =====================
 router.post(
   '/login',
@@ -233,8 +220,15 @@ router.post(
         expiresIn: '1h',
       });
 
-      res.json({
-        token,
+      // ✅ COOKIE SET (REQUIRED FOR LIVE LOGIN)
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'None',
+      });
+
+      res.status(200).json({
+        msg: 'Login successful',
         user: {
           name: user.name,
           email: user.email,

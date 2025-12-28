@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 const app = express();
@@ -9,8 +10,16 @@ const app = express();
 // =======================
 // Middleware
 // =======================
-app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
+
+// ✅ FIXED CORS (required for live login if using cookies)
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL, // e.g. https://your-frontend.onrender.com
+    credentials: true,
+  })
+);
 
 // =======================
 // API Routes
@@ -38,15 +47,10 @@ mongoose
 // Serve React Frontend (Production)
 // =======================
 if (process.env.NODE_ENV === 'production') {
-  const frontendPath = path.join(
-    __dirname,
-    '../smart-bike-frontend/build' // updated folder name
-  );
+  const frontendPath = path.join(__dirname, '../smart-bike-frontend/build');
 
-  // Serve static files
   app.use(express.static(frontendPath));
 
-  // React catch-all route
   app.get(/^\/.*$/, (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
@@ -56,6 +60,4 @@ if (process.env.NODE_ENV === 'production') {
 // Start Server
 // =======================
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () =>
-  console.log(`🚀 Server running on port ${PORT}`)
-);
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
