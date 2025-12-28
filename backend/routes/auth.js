@@ -14,20 +14,19 @@ if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS || !process.env.JWT_SECRE
 }
 
 // =====================
-// MAIL TRANSPORTER (RENDER + GMAIL FIXED)
+// MAIL TRANSPORTER (BREVO – RENDER SAFE)
 // =====================
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // ✅ REQUIRED
+  host: 'smtp-relay.brevo.com',
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  connectionTimeout: 20000,
 });
 
-// Verify transporter on startup
+// Verify transporter
 transporter.verify((err) => {
   if (err) {
     console.error('❌ Mail transporter error:', err.message);
@@ -99,14 +98,14 @@ router.post(
 
       await user.save();
 
-      // ✅ respond instantly
+      // Respond immediately
       res.status(200).json({ msg: 'OTP sent successfully' });
 
-      // ✅ send mail async
+      // Send email async
       setImmediate(async () => {
         try {
           await transporter.sendMail({
-            from: `"Smart Bike" <${process.env.EMAIL_USER}>`,
+            from: '"Smart Bike" <no-reply@smartbike.com>',
             to: email,
             subject: 'Verify your email',
             text: `Your OTP is ${otp}. It expires in 10 minutes.`,
@@ -143,7 +142,6 @@ router.post(
         return res.status(400).json({ msg: 'User already verified' });
 
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
       user.otp = otp;
       user.otpExpiry = Date.now() + 10 * 60 * 1000;
       await user.save();
@@ -153,13 +151,13 @@ router.post(
       setImmediate(async () => {
         try {
           await transporter.sendMail({
-            from: `"Smart Bike" <${process.env.EMAIL_USER}>`,
+            from: '"Smart Bike" <no-reply@smartbike.com>',
             to: email,
             subject: 'Resend OTP',
             text: `Your new OTP is ${otp}. It expires in 10 minutes.`,
           });
         } catch (err) {
-          console.error('❌ Resend OTP mail failed:', err.message);
+          console.error('❌ Resend OTP email failed:', err.message);
         }
       });
 
@@ -175,10 +173,7 @@ router.post(
 // =====================
 router.post(
   '/verify-otp',
-  [
-    check('email').isEmail(),
-    check('otp').isLength({ min: 6, max: 6 }),
-  ],
+  [check('email').isEmail(), check('otp').isLength({ min: 6, max: 6 })],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty())
